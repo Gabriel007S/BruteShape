@@ -31,7 +31,7 @@ treinos_df = read_csv(treinos_file, treinos_cols)
 evolucao_df = read_csv(evolucao_file, evolucao_cols)
 
 # ------------------- Menu lateral -------------------
-menu = st.sidebar.radio("Navegação", ["Cadastro de Alunos", "Treinos", "Evolução Física", "Relatórios", "Editar Alunos"])
+menu = st.sidebar.radio("Navegação", ["Cadastro de Alunos", "Treinos", "Evolução Física", "Relatórios", "Editar Contato"])
 
 # ------------------- Cadastro de Alunos -------------------
 if menu == "Cadastro de Alunos":
@@ -122,29 +122,23 @@ elif menu == "Relatórios":
         else:
             st.info("Nenhum dado de evolução para este aluno.")
 
-# ------------------- Editar Alunos -------------------
-elif menu == "Editar Alunos":
-    st.header("Editar Informações do Aluno")
+# ------------------- Editar Contato -------------------
+elif menu == "Editar Contato":
+    st.header("Editar Contato do Aluno")
     
     if alunos_df.empty:
         st.warning("Nenhum aluno cadastrado.")
     else:
         aluno = st.selectbox("Selecione o aluno", alunos_df["Nome"])
         
-        # Valores atuais
-        idade_atual = int(alunos_df.loc[alunos_df["Nome"]==aluno, "Idade"].values[0])
-        objetivo_atual = alunos_df.loc[alunos_df["Nome"]==aluno, "Objetivo"].values[0]
+        # Valor atual do contato
         contato_atual = alunos_df.loc[alunos_df["Nome"]==aluno, "Contato"].values[0]
         
-        # Inputs para editar
-        novo_idade = st.number_input("Idade", value=idade_atual)
-        novo_objetivo = st.text_input("Objetivo", value=objetivo_atual)
+        # Input para editar contato
         novo_contato = st.text_input("Contato", value=contato_atual)
         
         if st.button("Atualizar"):
-            alunos_df.loc[alunos_df["Nome"]==aluno, "Idade"] = novo_idade
-            alunos_df.loc[alunos_df["Nome"]==aluno, "Objetivo"] = novo_objetivo
             alunos_df.loc[alunos_df["Nome"]==aluno, "Contato"] = novo_contato
             save_csv(alunos_df, alunos_file)
-            st.success(f"Dados de {aluno} atualizados!")
+            st.success(f"Contato de {aluno} atualizado!")
             st.dataframe(alunos_df)
