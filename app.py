@@ -1,40 +1,39 @@
 import streamlit as st
 import pandas as pd
-import gspread
-from oauth2client.service_account import ServiceAccountCredentials
+import os
 
 st.set_page_config(page_title="BruteShape - Gestão de Treinos", layout="wide")
 st.title("🏋️‍♂️ Gestão de Treinos - Academia BruteShape")
 
-# ----- Conectar com Google Sheets -----
-scope = ["https://spreadsheets.google.com/feeds","https://www.googleapis.com/auth/drive"]
-creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
-client = gspread.authorize(creds)
-sheet = client.open("BruteShape")  # Nome da planilha
+# ------------------- Funções para CSV -------------------
+def read_csv(file_name, cols):
+    if os.path.exists(file_name):
+        return pd.read_csv(file_name)
+    else:
+        return pd.DataFrame(columns=cols)
 
-# Função para ler aba
-def read_sheet(tab_name):
-    try:
-        worksheet = sheet.worksheet(tab_name)
-        data = worksheet.get_all_records()
-        return pd.DataFrame(data)
-    except:
-        return pd.DataFrame()
+def save_csv(df, file_name):
+    df.to_csv(file_name, index=False)
 
-# Função para escrever na aba
-def append_sheet(tab_name, row):
-    worksheet = sheet.worksheet(tab_name)
-    worksheet.append_row(row)
+# Arquivos CSV
+alunos_file = "alunos.csv"
+treinos_file = "treinos.csv"
+evolucao_file = "evolucao.csv"
 
-# ----- Carregar dados -----
-alunos_df = read_sheet("Alunos")
-treinos_df = read_sheet("Treinos")
-evolucao_df = read_sheet("Evolucao")
+# Colunas de cada CSV
+alunos_cols = ["Nome","Idade","Objetivo","DataInicio","Contato"]
+treinos_cols = ["Aluno","Data","Exercicio","Series","Repeticoes","Carga","Observacoes"]
+evolucao_cols = ["Aluno","Data","Peso","Braco","Peito","Cintura","Observacoes"]
 
-# Menu lateral
+# Carregar dados
+alunos_df = read_csv(alunos_file, alunos_cols)
+treinos_df = read_csv(treinos_file, treinos_cols)
+evolucao_df = read_csv(evolucao_file, evolucao_cols)
+
+# ------------------- Menu lateral -------------------
 menu = st.sidebar.radio("Navegação", ["Cadastro de Alunos", "Treinos", "Evolução Física", "Relatórios", "Editar Alunos"])
 
-# ----------------------- Cadastro de Alunos -----------------------
+# ------------------- Cadastro de Alunos -------------------
 if menu == "Cadastro de Alunos":
     st.header("Cadastro de Alunos")
     with st.form("form_aluno"):
@@ -46,14 +45,18 @@ if menu == "Cadastro de Alunos":
         enviar = st.form_submit_button("Salvar")
 
     if enviar and nome:
-        row = [nome, idade, objetivo, str(data_inicio), contato]
-        append_sheet("Alunos", row)
-        st.success(f"Aluno {nome} cadastrado!")
-        alunos_df = read_sheet("Alunos")
+        if nome in alunos_df["Nome"].values:
+            st.warning("Aluno já cadastrado!")
+        else:
+            row = {"Nome": nome, "Idade": idade, "Objetivo": objetivo,
+                   "DataInicio": str(data_inicio), "Contato": contato}
+            alunos_df = pd.concat([alunos_df, pd.DataFrame([row])], ignore_index=True)
+            save_csv(alunos_df, alunos_file)
+            st.success(f"Aluno {nome} cadastrado!")
 
     st.dataframe(alunos_df)
 
-# ----------------------- Treinos -----------------------
+# ------------------- Treinos -------------------
 elif menu == "Treinos":
     st.header("Registro de Treinos")
     if alunos_df.empty:
@@ -70,14 +73,16 @@ elif menu == "Treinos":
             enviar = st.form_submit_button("Salvar")
 
         if enviar:
-            row = [aluno, str(data), exercicio, series, repeticoes, carga, obs]
-            append_sheet("Treinos", row)
+            row = {"Aluno": aluno, "Data": str(data), "Exercicio": exercicio,
+                   "Series": series, "Repeticoes": repeticoes, "Carga": carga,
+                   "Observacoes": obs}
+            treinos_df = pd.concat([treinos_df, pd.DataFrame([row])], ignore_index=True)
+            save_csv(treinos_df, treinos_file)
             st.success(f"Treino de {aluno} salvo!")
-            treinos_df = read_sheet("Treinos")
 
         st.dataframe(treinos_df)
 
-# ----------------------- Evolução Física -----------------------
+# ------------------- Evolução Física -------------------
 elif menu == "Evolução Física":
     st.header("Evolução Física")
     if alunos_df.empty:
@@ -94,14 +99,15 @@ elif menu == "Evolução Física":
             enviar = st.form_submit_button("Salvar")
 
         if enviar:
-            row = [aluno, str(data), peso, braco, peito, cintura, obs]
-            append_sheet("Evolucao", row)
+            row = {"Aluno": aluno, "Data": str(data), "Peso": peso, "Braco": braco,
+                   "Peito": peito, "Cintura": cintura, "Observacoes": obs}
+            evolucao_df = pd.concat([evolucao_df, pd.DataFrame([row])], ignore_index=True)
+            save_csv(evolucao_df, evolucao_file)
             st.success(f"Evolução de {aluno} registrada!")
-            evolucao_df = read_sheet("Evolucao")
 
         st.dataframe(evolucao_df)
 
-# ----------------------- Relatórios -----------------------
+# ------------------- Relatórios -------------------
 elif menu == "Relatórios":
     st.header("📊 Relatórios e Gráficos")
     if evolucao_df.empty:
@@ -116,7 +122,7 @@ elif menu == "Relatórios":
         else:
             st.info("Nenhum dado de evolução para este aluno.")
 
-# ----------------------- Editar Alunos -----------------------
+# ------------------- Editar Alunos -------------------
 elif menu == "Editar Alunos":
     st.header("Editar Informações do Aluno")
     
@@ -125,27 +131,20 @@ elif menu == "Editar Alunos":
     else:
         aluno = st.selectbox("Selecione o aluno", alunos_df["Nome"])
         
-        # Pegar valores atuais
-        idade_atual = alunos_df.loc[alunos_df["Nome"]==aluno, "Idade"].values[0]
+        # Valores atuais
+        idade_atual = int(alunos_df.loc[alunos_df["Nome"]==aluno, "Idade"].values[0])
         objetivo_atual = alunos_df.loc[alunos_df["Nome"]==aluno, "Objetivo"].values[0]
         contato_atual = alunos_df.loc[alunos_df["Nome"]==aluno, "Contato"].values[0]
         
         # Inputs para editar
-        novo_idade = st.number_input("Idade", value=int(idade_atual))
+        novo_idade = st.number_input("Idade", value=idade_atual)
         novo_objetivo = st.text_input("Objetivo", value=objetivo_atual)
         novo_contato = st.text_input("Contato", value=contato_atual)
         
         if st.button("Atualizar"):
-            worksheet = sheet.worksheet("Alunos")
-            cell = worksheet.find(aluno)
-            row_number = cell.row
-            
-            worksheet.update_cell(row_number, alunos_df.columns.get_loc("Idade")+1, novo_idade)
-            worksheet.update_cell(row_number, alunos_df.columns.get_loc("Objetivo")+1, novo_objetivo)
-            worksheet.update_cell(row_number, alunos_df.columns.get_loc("Contato")+1, novo_contato)
-            
+            alunos_df.loc[alunos_df["Nome"]==aluno, "Idade"] = novo_idade
+            alunos_df.loc[alunos_df["Nome"]==aluno, "Objetivo"] = novo_objetivo
+            alunos_df.loc[alunos_df["Nome"]==aluno, "Contato"] = novo_contato
+            save_csv(alunos_df, alunos_file)
             st.success(f"Dados de {aluno} atualizados!")
-            
-            # Recarregar tabela
-            alunos_df = read_sheet("Alunos")
             st.dataframe(alunos_df)
