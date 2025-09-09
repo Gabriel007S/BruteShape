@@ -3,7 +3,7 @@ import pandas as pd
 import os
 
 st.set_page_config(page_title="BruteShape - Gestão de Treinos", layout="wide")
-
+//
 st.title("🏋️‍♂️ Gestão de Treinos - Academia BruteShape")
 
 # ----- Carregar dados se já existirem -----
